@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  xero-app:
+    build: .
+    container_name: xero-app
+    restart: unless-stopped
+    ports:
+      - "5002:5000"
+    environment:
+      - XERO_CLIENT_ID=${XERO_CLIENT_ID}
+      - XERO_CLIENT_SECRET=${XERO_CLIENT_SECRET}
+      - XERO_REDIRECT_URI=${XERO_REDIRECT_URI:-https://dev.atomapp.cyou/callback}
+      - SESSION_SECRET=${SESSION_SECRET}
+    volumes:
+      - ./xero_tokens.json:/app/xero_tokens.json

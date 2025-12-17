@@ -1,0 +1,33 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">🏦 Chart of Accounts</div>
+    
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Class</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${accounts.length ? accounts.map(acc => {
+            const statusClass = acc.status === 'ACTIVE' ? 'badge-success' : 'badge-danger';
+            return `
+              <tr>
+                <td><code>${acc.code || '-'}</code></td>
+                <td>${acc.name || 'N/A'}</td>
+                <td>${acc.type || 'N/A'}</td>
+                <td>${acc._class || 'N/A'}</td>
+                <td><span class="badge ${statusClass}">${acc.status || 'N/A'}</span></td>
+              </tr>
+            `;
+          }).join('') : '<tr><td colspan="5" class="text-muted" style="text-align:center">No accounts found</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+` }) %>

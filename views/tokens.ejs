@@ -1,0 +1,46 @@
+<%- include('layout', { body: `
+  ${tokens ? `
+    <div class="card">
+      <div class="card-title">🔑 Token Information</div>
+      
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Tenant ID</div>
+          <div class="kpi-value xs">${tokens.tenant_id || tenantId || 'N/A'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Tenant Name</div>
+          <div class="kpi-value small">${tenantName || 'N/A'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Token Type</div>
+          <div class="kpi-value small">${tokens.token_type || 'Bearer'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Saved At</div>
+          <div class="kpi-value small">${tokens.saved_at || 'N/A'}</div>
+        </div>
+      </div>
+      
+      <div class="mt-2">
+        <div class="mb-1"><strong>Access Token:</strong></div>
+        <pre>${tokens.access_token ? tokens.access_token.substring(0, 100) + '...' : 'N/A'}</pre>
+      </div>
+      
+      <div class="mt-2">
+        <div class="mb-1"><strong>Refresh Token:</strong></div>
+        <pre>${tokens.refresh_token ? tokens.refresh_token.substring(0, 100) + '...' : 'N/A'}</pre>
+      </div>
+      
+      <div class="mt-2 flex gap-2 flex-wrap">
+        <a href="/tokens/full" class="btn" target="_blank">📋 View Full Tokens (JSON)</a>
+        <a href="/refresh" class="btn success">🔄 Refresh Token</a>
+      </div>
+    </div>
+  ` : `
+    <div class="alert alert-info">
+      No tokens saved. Please connect to Xero first.
+    </div>
+    <a href="/login" class="btn">🔐 Connect to Xero</a>
+  `}
+` }) %>

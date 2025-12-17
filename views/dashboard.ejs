@@ -1,0 +1,65 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">📊 Dashboard - ${tenantName}</div>
+    
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Organisation</div>
+        <div class="kpi-value small">${organisation.name || 'N/A'}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Country</div>
+        <div class="kpi-value small">${organisation.countryCode || 'N/A'}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Base Currency</div>
+        <div class="kpi-value small">${organisation.baseCurrency || 'N/A'}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Organisation Type</div>
+        <div class="kpi-value small">${organisation.organisationType || 'N/A'}</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="card-title">📄 Recent Invoices</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Type</th>
+            <th>Contact</th>
+            <th>Date</th>
+            <th>Due Date</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoices.length ? invoices.map(inv => {
+            const statusClass = inv.status === 'PAID' ? 'badge-success' : 
+                               (inv.status === 'AUTHORISED' ? 'badge-warning' : 'badge-danger');
+            const date = inv.date ? new Date(inv.date).toLocaleDateString() : 'N/A';
+            const dueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
+            return `
+              <tr>
+                <td><code>${inv.invoiceNumber || 'N/A'}</code></td>
+                <td>${inv.type || 'N/A'}</td>
+                <td>${inv.contact?.name || 'N/A'}</td>
+                <td>${date}</td>
+                <td>${dueDate}</td>
+                <td><strong>${inv.currencyCode || ''} ${(inv.total || 0).toLocaleString('en', {minimumFractionDigits: 2})}</strong></td>
+                <td><span class="badge ${statusClass}">${inv.status || 'N/A'}</span></td>
+              </tr>
+            `;
+          }).join('') : '<tr><td colspan="7" class="text-muted" style="text-align:center">No invoices found</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-2">
+      <a href="/invoices" class="btn">View All Invoices →</a>
+    </div>
+  </div>
+` }) %>

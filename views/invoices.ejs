@@ -1,0 +1,51 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">📄 Invoices</div>
+    
+    <div class="btn-group">
+      <a href="/invoices" class="btn small ${!statusFilter ? 'active' : ''}">All</a>
+      <a href="/invoices?status=AUTHORISED" class="btn small ${statusFilter === 'AUTHORISED' ? 'active' : ''}">Authorised</a>
+      <a href="/invoices?status=PAID" class="btn small ${statusFilter === 'PAID' ? 'active' : ''}">Paid</a>
+      <a href="/invoices?status=DRAFT" class="btn small ${statusFilter === 'DRAFT' ? 'active' : ''}">Draft</a>
+      <a href="/invoices?status=VOIDED" class="btn small ${statusFilter === 'VOIDED' ? 'active' : ''}">Voided</a>
+    </div>
+    
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Type</th>
+            <th>Contact</th>
+            <th>Date</th>
+            <th>Due Date</th>
+            <th>Total</th>
+            <th>Amount Due</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoices.length ? invoices.map(inv => {
+            const statusClass = inv.status === 'PAID' ? 'badge-success' : 
+                               (inv.status === 'AUTHORISED' ? 'badge-warning' : 
+                               (inv.status === 'DRAFT' ? 'badge-info' : 'badge-danger'));
+            const date = inv.date ? new Date(inv.date).toLocaleDateString() : 'N/A';
+            const dueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
+            return `
+              <tr>
+                <td><code>${inv.invoiceNumber || 'N/A'}</code></td>
+                <td>${inv.type || 'N/A'}</td>
+                <td>${inv.contact?.name || 'N/A'}</td>
+                <td>${date}</td>
+                <td>${dueDate}</td>
+                <td>${inv.currencyCode || ''} ${(inv.total || 0).toLocaleString('en', {minimumFractionDigits: 2})}</td>
+                <td><strong>${inv.currencyCode || ''} ${(inv.amountDue || 0).toLocaleString('en', {minimumFractionDigits: 2})}</strong></td>
+                <td><span class="badge ${statusClass}">${inv.status || 'N/A'}</span></td>
+              </tr>
+            `;
+          }).join('') : '<tr><td colspan="8" class="text-muted" style="text-align:center">No invoices found</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+` }) %>

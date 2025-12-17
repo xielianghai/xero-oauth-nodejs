@@ -1,0 +1,12 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">❌ Error</div>
+    <div class="alert alert-error">
+      ${error || 'An unknown error occurred'}
+    </div>
+    <div class="flex gap-2">
+      <a href="/" class="btn">🏠 Go Home</a>
+      <a href="/login" class="btn">🔐 Try Login Again</a>
+    </div>
+  </div>
+` }) %>

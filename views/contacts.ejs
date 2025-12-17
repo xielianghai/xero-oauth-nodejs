@@ -1,0 +1,32 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">👥 Contacts</div>
+    
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${contacts.length ? contacts.map(contact => {
+            const statusClass = contact.contactStatus === 'ACTIVE' ? 'badge-success' : 'badge-danger';
+            const phone = contact.phones?.find(p => p.phoneNumber)?.phoneNumber || '-';
+            return `
+              <tr>
+                <td><strong>${contact.name || 'N/A'}</strong></td>
+                <td>${contact.emailAddress || '-'}</td>
+                <td>${phone}</td>
+                <td><span class="badge ${statusClass}">${contact.contactStatus || 'N/A'}</span></td>
+              </tr>
+            `;
+          }).join('') : '<tr><td colspan="4" class="text-muted" style="text-align:center">No contacts found</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+` }) %>

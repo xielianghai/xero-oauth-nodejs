@@ -1,0 +1,49 @@
+<%- include('layout', { body: `
+  <div class="card">
+    <div class="card-title">⚙️ Settings</div>
+    
+    <div class="mb-3">
+      <div class="mb-1"><strong>Connection Status</strong></div>
+      <div class="kpi" style="display: inline-block;">
+        <div class="kpi-label">Status</div>
+        <div class="kpi-value small ${connected ? 'text-good' : 'text-bad'}">
+          ${connected ? '✓ Connected' : '✗ Not Connected'}
+        </div>
+      </div>
+    </div>
+    
+    <div class="mb-3">
+      <div class="mb-1"><strong>OAuth Configuration</strong></div>
+      <table>
+        <tr>
+          <td class="text-muted">Client ID</td>
+          <td><code>${clientId}</code></td>
+        </tr>
+        <tr>
+          <td class="text-muted">Client Secret</td>
+          <td><code>${clientSecret}</code></td>
+        </tr>
+        <tr>
+          <td class="text-muted">Redirect URI</td>
+          <td><code>${redirectUri}</code></td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="mb-3">
+      <div class="mb-1"><strong>Scopes</strong></div>
+      <div class="flex gap-2 flex-wrap">
+        ${scopes.map(scope => `<span class="badge badge-success">${scope}</span>`).join('')}
+      </div>
+    </div>
+    
+    <div class="flex gap-2 flex-wrap">
+      ${connected ? `
+        <a href="/refresh" class="btn success">🔄 Refresh Token</a>
+        <a href="/disconnect" class="btn danger">⛔ Disconnect</a>
+      ` : `
+        <a href="/login" class="btn">🔐 Connect to Xero</a>
+      `}
+    </div>
+  </div>
+` }) %>
