@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Xero Dashboard</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/demo/style.css">
 </head>
 <body>
   <div class="app">
     <div class="topbar">
-      <a href="/" class="brand">
+      <a href="/demo/" class="brand">
         <div class="logo">📊</div>
         <span>Xero Dashboard</span>
       </a>
@@ -24,35 +24,35 @@
     
     <div class="main">
       <div class="sidebar">
-        <a href="/" class="navbtn <%= active === 'home' ? 'active' : '' %>">
+        <a href="/demo/" class="navbtn <%= active === 'home' ? 'active' : '' %>">
           <span class="navicon">🏠</span>
           <span>Home</span>
         </a>
         
         <% if (connected) { %>
-          <a href="/dashboard" class="navbtn <%= active === 'dashboard' ? 'active' : '' %>">
+          <a href="/demo/dashboard" class="navbtn <%= active === 'dashboard' ? 'active' : '' %>">
             <span class="navicon">📊</span>
             <span>Dashboard</span>
           </a>
-          <a href="/invoices" class="navbtn <%= active === 'invoices' ? 'active' : '' %>">
+          <a href="/demo/invoices" class="navbtn <%= active === 'invoices' ? 'active' : '' %>">
             <span class="navicon">📄</span>
             <span>Invoices</span>
           </a>
-          <a href="/contacts" class="navbtn <%= active === 'contacts' ? 'active' : '' %>">
+          <a href="/demo/contacts" class="navbtn <%= active === 'contacts' ? 'active' : '' %>">
             <span class="navicon">👥</span>
             <span>Contacts</span>
           </a>
-          <a href="/accounts" class="navbtn <%= active === 'accounts' ? 'active' : '' %>">
+          <a href="/demo/accounts" class="navbtn <%= active === 'accounts' ? 'active' : '' %>">
             <span class="navicon">🏦</span>
             <span>Accounts</span>
           </a>
         <% } %>
         
-        <a href="/tokens" class="navbtn <%= active === 'tokens' ? 'active' : '' %>">
+        <a href="/demo/tokens" class="navbtn <%= active === 'tokens' ? 'active' : '' %>">
           <span class="navicon">🔑</span>
           <span>Tokens</span>
         </a>
-        <a href="/settings" class="navbtn <%= active === 'settings' ? 'active' : '' %>">
+        <a href="/demo/settings" class="navbtn <%= active === 'settings' ? 'active' : '' %>">
           <span class="navicon">⚙️</span>
           <span>Settings</span>
         </a>

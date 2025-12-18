@@ -9,6 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const TOKEN_FILE = path.join(__dirname, 'xero_tokens.json');
 
+// 从 XERO_REDIRECT_URI 中提取回调路径
+const CALLBACK_PATH = new URL(process.env.XERO_REDIRECT_URI).pathname;
+
 // 配置
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -25,7 +28,7 @@ app.use(session({
 const xero = new XeroClient({
   clientId: process.env.XERO_CLIENT_ID,
   clientSecret: process.env.XERO_CLIENT_SECRET,
-  redirectUris: [process.env.XERO_REDIRECT_URI || 'https://dev.atomapp.cyou/rest/oauth2-credential/callback'],
+  redirectUris: [process.env.XERO_REDIRECT_URI],
   scopes: [
     'openid',
     'profile',
@@ -119,14 +122,14 @@ async function getStatus(req) {
 
 // 中间件：添加状态到所有视图
 app.use(async (req, res, next) => {
-  res.locals.redirectUri = process.env.XERO_REDIRECT_URI || 'https://dev.atomapp.cyou/rest/oauth2-credential/callback';
+  res.locals.redirectUri = process.env.XERO_REDIRECT_URI;
   next();
 });
 
 // ===== 路由 =====
 
 // 首页
-app.get('/', async (req, res) => {
+app.get('/demo/', async (req, res) => {
   try {
     const status = await getStatus(req);
     res.render('index', { 
@@ -146,7 +149,7 @@ app.get('/', async (req, res) => {
 });
 
 // 登录
-app.get('/login', async (req, res) => {
+app.get('/demo/login', async (req, res) => {
   try {
     const consentUrl = await xero.buildConsentUrl();
     res.redirect(consentUrl);
@@ -164,7 +167,7 @@ app.get('/login', async (req, res) => {
 });
 
 // OAuth 回调
-app.get('/rest/oauth2-credential/callback', async (req, res) => {
+app.get(CALLBACK_PATH, async (req, res) => {
   try {
     const tokenSet = await xero.apiCallback(req.url);
     saveTokens(tokenSet);
@@ -187,7 +190,7 @@ app.get('/rest/oauth2-credential/callback', async (req, res) => {
 });
 
 // 刷新 Token
-app.get('/refresh', async (req, res) => {
+app.get('/demo/refresh', async (req, res) => {
   try {
     const tokens = loadTokens();
     if (!tokens || !tokens.refresh_token) {
@@ -206,7 +209,7 @@ app.get('/refresh', async (req, res) => {
 });
 
 // Dashboard
-app.get('/dashboard', async (req, res) => {
+app.get('/demo/dashboard', async (req, res) => {
   try {
     const status = await getStatus(req);
     if (!status.connected) {
@@ -254,7 +257,7 @@ app.get('/dashboard', async (req, res) => {
 });
 
 // 发票列表
-app.get('/invoices', async (req, res) => {
+app.get('/demo/invoices', async (req, res) => {
   try {
     const status = await getStatus(req);
     if (!status.connected) {
@@ -303,7 +306,7 @@ app.get('/invoices', async (req, res) => {
 });
 
 // 联系人列表
-app.get('/contacts', async (req, res) => {
+app.get('/demo/contacts', async (req, res) => {
   try {
     const status = await getStatus(req);
     if (!status.connected) {
@@ -339,7 +342,7 @@ app.get('/contacts', async (req, res) => {
 });
 
 // 账户列表
-app.get('/accounts', async (req, res) => {
+app.get('/demo/accounts', async (req, res) => {
   try {
     const status = await getStatus(req);
     if (!status.connected) {
@@ -365,7 +368,7 @@ app.get('/accounts', async (req, res) => {
 });
 
 // Token 信息
-app.get('/tokens', async (req, res) => {
+app.get('/demo/tokens', async (req, res) => {
   try {
     const status = await getStatus(req);
     res.render('tokens', {
@@ -385,13 +388,13 @@ app.get('/tokens', async (req, res) => {
 });
 
 // 完整 Token JSON
-app.get('/tokens/full', (req, res) => {
+app.get('/demo/tokens/full', (req, res) => {
   const tokens = loadTokens();
   res.json(tokens || { error: 'No tokens saved' });
 });
 
 // 设置
-app.get('/settings', async (req, res) => {
+app.get('/demo/settings', async (req, res) => {
   try {
     const status = await getStatus(req);
     res.render('settings', {
@@ -417,7 +420,7 @@ app.get('/settings', async (req, res) => {
 });
 
 // 断开连接
-app.get('/disconnect', (req, res) => {
+app.get('/demo/disconnect', (req, res) => {
   deleteTokens();
   res.redirect('/');
 });
@@ -429,7 +432,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(50));
   console.log(`CLIENT_ID: ${process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Not Set'}`);
   console.log(`CLIENT_SECRET: ${process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Not Set'}`);
-  console.log(`REDIRECT_URI: ${process.env.XERO_REDIRECT_URI || 'https://dev.atomapp.cyou/rest/oauth2-credential/callback'}`);
+  console.log(`REDIRECT_URI: ${process.env.XERO_REDIRECT_URI}`);
   console.log('='.repeat(50));
   console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
