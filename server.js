@@ -15,7 +15,7 @@ const CALLBACK_PATH = new URL(process.env.XERO_REDIRECT_URI).pathname;
 // 配置
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/demo', express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'xero-dashboard-secret-key',
