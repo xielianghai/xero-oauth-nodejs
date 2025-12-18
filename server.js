@@ -9,20 +9,35 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const TOKEN_FILE = path.join(__dirname, 'xero_tokens.json');
 
+// ============ 可配置的根路径 ============
+// 修改这里即可更改所有路由的前缀，例如 '/demo'、'/app' 或 '' (根路径)
+const BASE_PATH = process.env.BASE_PATH || '';
+// =======================================
+
 // 从 XERO_REDIRECT_URI 中提取回调路径
 const CALLBACK_PATH = new URL(process.env.XERO_REDIRECT_URI).pathname;
+
+// 辅助函数：生成完整路径
+const url = (relativePath) => `${BASE_PATH}${relativePath}`;
 
 // 配置
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.use('/demo', express.static(path.join(__dirname, 'public')));
+app.use(url('/'), express.static(path.join(__dirname, 'public')));
 app.use(express.json());
-app.use(session({
+
+// Session 配置（生产环境应使用更安全的设置）
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'xero-dashboard-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
-}));
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true
+  }
+};
+app.use(session(sessionConfig));
 
 // Xero 客户端配置
 const xero = new XeroClient({
@@ -41,7 +56,8 @@ const xero = new XeroClient({
   ]
 });
 
-// Token 持久化
+// ============ Token 持久化 ============
+
 function saveTokens(tokenSet) {
   try {
     const data = {
@@ -61,7 +77,6 @@ function loadTokens() {
   try {
     if (fs.existsSync(TOKEN_FILE)) {
       const content = fs.readFileSync(TOKEN_FILE, 'utf8');
-      // 检查文件是否为空或无效
       if (!content || content.trim() === '' || content.trim() === '{}') {
         console.log('Token file is empty');
         return null;
@@ -77,7 +92,6 @@ function loadTokens() {
 function deleteTokens() {
   try {
     if (fs.existsSync(TOKEN_FILE)) {
-      // 写入空对象而不是删除文件（避免 Docker volume 问题）
       fs.writeFileSync(TOKEN_FILE, '{}');
       console.log('Tokens cleared');
     }
@@ -86,27 +100,27 @@ function deleteTokens() {
   }
 }
 
-// 获取连接状态
-async function getStatus(req) {
+// ============ 状态检查 ============
+
+async function getStatus() {
   const tokens = loadTokens();
   let connected = false;
   let tenantId = null;
   let tenantName = '';
   
-  if (tokens && tokens.access_token) {
+  if (tokens?.access_token) {
     try {
       xero.setTokenSet(tokens);
       
-      // 检查 token 是否过期，如果过期则刷新
       const tokenSet = xero.readTokenSet();
-      if (tokenSet && typeof tokenSet.expired === 'function' && tokenSet.expired()) {
+      if (tokenSet?.expired?.()) {
         console.log('Token expired, refreshing...');
         const newTokenSet = await xero.refreshToken();
         saveTokens(newTokenSet);
       }
       
       const tenants = await xero.updateTenants();
-      if (tenants && tenants.length > 0) {
+      if (tenants?.length > 0) {
         tenantId = tenants[0].tenantId;
         tenantName = tenants[0].tenantName;
         connected = true;
@@ -120,22 +134,46 @@ async function getStatus(req) {
   return { connected, tenantId, tenantName, tokens };
 }
 
-// 中间件：添加状态到所有视图
-app.use(async (req, res, next) => {
+// ============ 中间件 ============
+
+// 添加通用变量到所有视图
+app.use((req, res, next) => {
   res.locals.redirectUri = process.env.XERO_REDIRECT_URI;
+  res.locals.basePath = BASE_PATH;
+  res.locals.url = url; // 让模板也能使用 url 函数
   next();
 });
 
-// ===== 路由 =====
+// 认证检查中间件
+const requireAuth = async (req, res, next) => {
+  const status = await getStatus();
+  if (!status.connected) {
+    return res.redirect(url('/login'));
+  }
+  req.xeroStatus = status;
+  next();
+};
+
+// 错误处理辅助函数
+const renderError = async (res, error, active = 'home') => {
+  const status = await getStatus();
+  res.render('error', { 
+    error: error.message || error,
+    ...status,
+    active
+  });
+};
+
+// ============ 路由 ============
+
+// 创建路由器
+const router = express.Router();
 
 // 首页
-app.get('/demo/', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const status = await getStatus(req);
-    res.render('index', { 
-      ...status,
-      active: 'home'
-    });
+    const status = await getStatus();
+    res.render('index', { ...status, active: 'home' });
   } catch (e) {
     console.error('Index error:', e.message);
     res.render('index', { 
@@ -149,78 +187,43 @@ app.get('/demo/', async (req, res) => {
 });
 
 // 登录
-app.get('/demo/login', async (req, res) => {
+router.get('/login', async (req, res) => {
   try {
     const consentUrl = await xero.buildConsentUrl();
     res.redirect(consentUrl);
   } catch (e) {
     console.error('Login error:', e.message);
-    res.render('error', { 
-      error: e.message,
-      connected: false,
-      tenantId: null,
-      tenantName: '',
-      tokens: null,
-      active: 'home'
-    });
-  }
-});
-
-// OAuth 回调
-app.get(CALLBACK_PATH, async (req, res) => {
-  try {
-    const tokenSet = await xero.apiCallback(req.url);
-    saveTokens(tokenSet);
-    
-    // 获取租户信息
-    await xero.updateTenants();
-    
-    res.redirect('/');
-  } catch (e) {
-    console.error('Callback error:', e.message);
-    res.render('error', { 
-      error: e.message,
-      connected: false,
-      tenantId: null,
-      tenantName: '',
-      tokens: null,
-      active: 'home'
-    });
+    await renderError(res, e, 'home');
   }
 });
 
 // 刷新 Token
-app.get('/demo/refresh', async (req, res) => {
+router.get('/refresh', async (req, res) => {
   try {
     const tokens = loadTokens();
-    if (!tokens || !tokens.refresh_token) {
-      return res.redirect('/login');
+    if (!tokens?.refresh_token) {
+      return res.redirect(url('/login'));
     }
     
     xero.setTokenSet(tokens);
     const newTokenSet = await xero.refreshToken();
     saveTokens(newTokenSet);
     
-    res.redirect('/');
+    res.redirect(url('/'));
   } catch (e) {
     console.error('Refresh error:', e.message);
-    res.redirect('/login');
+    res.redirect(url('/login'));
   }
 });
 
 // Dashboard
-app.get('/demo/dashboard', async (req, res) => {
+router.get('/dashboard', requireAuth, async (req, res) => {
   try {
-    const status = await getStatus(req);
-    if (!status.connected) {
-      return res.redirect('/login');
-    }
+    const status = req.xeroStatus;
     
-    // 获取组织信息
     const orgResponse = await xero.accountingApi.getOrganisations(status.tenantId);
     const organisation = orgResponse.body.organisations?.[0] || {};
     
-    // 获取最近发票 - 修复参数顺序
     const invResponse = await xero.accountingApi.getInvoices(
       status.tenantId,
       undefined,  // ifModifiedSince
@@ -247,30 +250,17 @@ app.get('/demo/dashboard', async (req, res) => {
     });
   } catch (e) {
     console.error('Dashboard error:', e.message);
-    const status = await getStatus(req);
-    res.render('error', { 
-      error: e.message, 
-      ...status,
-      active: 'dashboard'
-    });
+    await renderError(res, e, 'dashboard');
   }
 });
 
 // 发票列表
-app.get('/demo/invoices', async (req, res) => {
+router.get('/invoices', requireAuth, async (req, res) => {
   try {
-    const status = await getStatus(req);
-    if (!status.connected) {
-      return res.redirect('/login');
-    }
-    
+    const status = req.xeroStatus;
     const statusFilter = req.query.status || '';
-    let where = undefined;
-    if (statusFilter) {
-      where = `Status=="${statusFilter}"`;
-    }
+    const where = statusFilter ? `Status=="${statusFilter}"` : undefined;
     
-    // 修复 API 调用参数
     const response = await xero.accountingApi.getInvoices(
       status.tenantId,
       undefined,    // ifModifiedSince
@@ -296,22 +286,14 @@ app.get('/demo/invoices', async (req, res) => {
     });
   } catch (e) {
     console.error('Invoices error:', e.message);
-    const status = await getStatus(req);
-    res.render('error', { 
-      error: e.message, 
-      ...status,
-      active: 'invoices'
-    });
+    await renderError(res, e, 'invoices');
   }
 });
 
 // 联系人列表
-app.get('/demo/contacts', async (req, res) => {
+router.get('/contacts', requireAuth, async (req, res) => {
   try {
-    const status = await getStatus(req);
-    if (!status.connected) {
-      return res.redirect('/login');
-    }
+    const status = req.xeroStatus;
     
     const response = await xero.accountingApi.getContacts(
       status.tenantId,
@@ -332,23 +314,14 @@ app.get('/demo/contacts', async (req, res) => {
     });
   } catch (e) {
     console.error('Contacts error:', e.message);
-    const status = await getStatus(req);
-    res.render('error', { 
-      error: e.message, 
-      ...status,
-      active: 'contacts'
-    });
+    await renderError(res, e, 'contacts');
   }
 });
 
 // 账户列表
-app.get('/demo/accounts', async (req, res) => {
+router.get('/accounts', requireAuth, async (req, res) => {
   try {
-    const status = await getStatus(req);
-    if (!status.connected) {
-      return res.redirect('/login');
-    }
-    
+    const status = req.xeroStatus;
     const response = await xero.accountingApi.getAccounts(status.tenantId);
     
     res.render('accounts', {
@@ -358,23 +331,15 @@ app.get('/demo/accounts', async (req, res) => {
     });
   } catch (e) {
     console.error('Accounts error:', e.message);
-    const status = await getStatus(req);
-    res.render('error', { 
-      error: e.message, 
-      ...status,
-      active: 'accounts'
-    });
+    await renderError(res, e, 'accounts');
   }
 });
 
-// Token 信息
-app.get('/demo/tokens', async (req, res) => {
+// Token 信息页面
+router.get('/tokens', async (req, res) => {
   try {
-    const status = await getStatus(req);
-    res.render('tokens', {
-      ...status,
-      active: 'tokens'
-    });
+    const status = await getStatus();
+    res.render('tokens', { ...status, active: 'tokens' });
   } catch (e) {
     console.error('Tokens page error:', e.message);
     res.render('tokens', {
@@ -387,23 +352,23 @@ app.get('/demo/tokens', async (req, res) => {
   }
 });
 
-// 完整 Token JSON
-app.get('/demo/tokens/full', (req, res) => {
+// 完整 Token JSON API
+router.get('/tokens/full', (req, res) => {
   const tokens = loadTokens();
   res.json(tokens || { error: 'No tokens saved' });
 });
 
-// 设置
-app.get('/demo/settings', async (req, res) => {
+// 设置页面
+router.get('/settings', async (req, res) => {
+  const baseSettings = {
+    clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Not Set',
+    clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Not Set',
+    scopes: xero.config?.scopes || []
+  };
+  
   try {
-    const status = await getStatus(req);
-    res.render('settings', {
-      ...status,
-      active: 'settings',
-      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Not Set',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Not Set',
-      scopes: xero.config.scopes || []
-    });
+    const status = await getStatus();
+    res.render('settings', { ...status, active: 'settings', ...baseSettings });
   } catch (e) {
     console.error('Settings error:', e.message);
     res.render('settings', {
@@ -412,17 +377,45 @@ app.get('/demo/settings', async (req, res) => {
       tenantName: '',
       tokens: null,
       active: 'settings',
-      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Not Set',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Not Set',
-      scopes: []
+      ...baseSettings
     });
   }
 });
 
 // 断开连接
-app.get('/demo/disconnect', (req, res) => {
+router.get('/disconnect', (req, res) => {
   deleteTokens();
-  res.redirect('/');
+  res.redirect(url('/'));
+});
+
+// 挂载路由器到基础路径
+app.use(BASE_PATH || '/', router);
+
+// OAuth 回调（必须在配置的完整路径上）
+// 注意：这个路由需要单独处理，因为 Xero 回调 URL 是完整路径
+app.get(CALLBACK_PATH, async (req, res) => {
+  try {
+    const tokenSet = await xero.apiCallback(req.url);
+    saveTokens(tokenSet);
+    await xero.updateTenants();
+    res.redirect(url('/'));
+  } catch (e) {
+    console.error('Callback error:', e.message);
+    await renderError(res, e, 'home');
+  }
+});
+
+// 全局错误处理
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).render('error', {
+    error: 'Internal Server Error',
+    connected: false,
+    tenantId: null,
+    tenantName: '',
+    tokens: null,
+    active: 'home'
+  });
 });
 
 // 启动服务器
@@ -430,9 +423,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(50));
   console.log('Xero Dashboard - Node.js');
   console.log('='.repeat(50));
+  console.log(`BASE_PATH: ${BASE_PATH || '/ (root)'}`);
   console.log(`CLIENT_ID: ${process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Not Set'}`);
-  console.log(`CLIENT_SECRET: ${process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Not Set'}`);
+  console.log(`CLIENT_SECRET: ${process.env.XERO_CLIENT_SECRET ? '✗ Set' : '✗ Not Set'}`);
   console.log(`REDIRECT_URI: ${process.env.XERO_REDIRECT_URI}`);
   console.log('='.repeat(50));
-  console.log(`Server running at http://0.0.0.0:${PORT}`);
+  console.log(`Server running at http://0.0.0.0:${PORT}${BASE_PATH || '/'}`);
 });
